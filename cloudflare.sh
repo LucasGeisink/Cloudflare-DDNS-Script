@@ -1,7 +1,7 @@
 #!/bin/bash
 # Currently only supports IPv4
 # You only need to fill in the fields below
-CF_RECORD_NAME="sub.example.com"
+CF_RECORD_NAME="sub.example.com" // you can use $(hostname -f) to get the machine name + dhcp domain
 CF_USER="user@example.com"
 CF_KEY="th1s_1s_n0t_a_r3al_k3y"
 
@@ -28,13 +28,14 @@ CF_RECORD_IP=$(grep -Po '(?<="content":")[^"]*' <<< $CF_RECORD | head -1)
 
 if [ $IP == "internal" ]
 then
+  ENABLE_PROXY=false
   IPADDR=$(ip -4 addr show $ETH_ADAPTER | grep inet | awk '{print $2}' | awk -F "/" '{print $1}')
 else
   IPADDR=$(curl -s ifconfig.co)
 fi
 
 # This checks if the record exists already, if it does not it will create the record
-if [ "$(grep -Po '(?<="result":")[^"]*' <<< $CF_RECORD | head -1)" == "" ]
+if [ "$(grep -Po '(?<="id":")[^"]*' <<< $CF_RECORD | head -1)" == "" ]
 then
   echo "There is no record for that subdomain yet, we will now create one:"
   printf "Type: A \nName: $CF_RECORD_NAME\nValue: $IPADDR\n"
@@ -43,7 +44,7 @@ then
        -H "X-Auth-Email: $CF_USER" \
        -H "X-Auth-Key: $CF_KEY" \
        -H "Content-Type: application/json" \
-       --data '{"type":"A","name":"'$CF_RECORD_NAME'","content":"'${IPADDR}'","ttl":1,"proxied":$ENABLE_PROXY}'
+       --data '{"type":"A","name":"'$CF_RECORD_NAME'","content":"'${IPADDR}'","ttl":1,"proxied":'${ENABLE_PROXY}'}'
 
 # Else the record is already there, we will then check if the record IP matches our machine ip. If it does not, we will update the record ip.
 elif [ $CF_RECORD_IP != $IPADDR ]
@@ -54,8 +55,8 @@ then
        -H "X-Auth-Email: $CF_USER" \
        -H "X-Auth-Key: $CF_KEY" \
        -H "Content-Type: application/json" \
-       --data '{"type":"A","name":"'$CF_RECORD_NAME'","content":"'${IPADDR}'","ttl":1,"proxied":$ENABLE_PROXY}'
-elif [ $CF_RECORD_IP == $IPADDR]
+       --data '{"type":"A","name":"'$CF_RECORD_NAME'","content":"'${IPADDR}'","ttl":1,"proxied":'${ENABLE_PROXY}'}'
+elif [ $CF_RECORD_IP == $IPADDR ]
 then
   echo "The server IP ($IPADDR) is equal to the record IP ($CF_RECORD_IP), record will not be updated."
 else
